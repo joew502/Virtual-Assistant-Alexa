@@ -5,6 +5,7 @@ import (
 	"encoding/base64"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"github.com/gorilla/mux"
 	"io/ioutil"
 	"net/http"
@@ -12,8 +13,11 @@ import (
 
 const (
 	REGION = "uksouth"
-	URI    = "https://" + REGION + ".tts.speech.microsoft.com/cognitiveservices/v1"
-	KEY    = "19c1cb3c0aa848608fed5a5a8a23d640"
+	URI    = "https://" + REGION + ".stt.speech.microsoft.com/" +
+		"speech/recognition/conversation/cognitiveservices/v1?" +
+		"language=en-US"
+
+	KEY = "19c1cb3c0aa848608fed5a5a8a23d640"
 )
 
 func check(e error) {
@@ -30,7 +34,7 @@ func TextToSpeech(w http.ResponseWriter, r *http.Request) {
 				"name=\"en-US-JennyNeural\">" + text + "</voice></speak>")
 			if speech, err := TtsService(main_text); err == nil {
 				speech_encoded := base64.StdEncoding.EncodeToString([]byte(speech))
-				u := map[string]interface{}{"speech": speech_encoded}
+				u := map[string]interface{}{"Speech": speech_encoded}
 				w.WriteHeader(http.StatusOK)
 				json.NewEncoder(w).Encode(u)
 			} else {
@@ -44,14 +48,14 @@ func TextToSpeech(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
-func TtsService(text []byte) ([]byte, error) {
+func SttService(speech []byte) (string, error) {
 	client := &http.Client{}
-	req, err := http.NewRequest("POST", URI, bytes.NewBuffer(text))
+	req, err := http.NewRequest("POST", URI, bytes.NewReader(speech))
 	check(err)
 
-	req.Header.Set("Content-Type", "application/ssml+xml")
+	req.Header.Set("Content-Type",
+		"audio/wav;codecs=audio/pcm;samplerate=16000")
 	req.Header.Set("Ocp-Apim-Subscription-Key", KEY)
-	req.Header.Set("X-Microsoft-OutputFormat", "riff-16khz-16bit-mono-pcm")
 
 	rsp, err2 := client.Do(req)
 	check(err2)
@@ -61,14 +65,19 @@ func TtsService(text []byte) ([]byte, error) {
 	if rsp.StatusCode == http.StatusOK {
 		body, err3 := ioutil.ReadAll(rsp.Body)
 		check(err3)
-		return body, nil
+		return string(body), nil
 	} else {
-		return nil, errors.New("cannot convert text to speech")
+		return "", errors.New("cannot convert to speech to text")
 	}
 }
 
 func main() {
+	speech, err1 := ioutil.ReadFile("speech.wav")
+	check(err1)
+	text, err2 := SpeechToText(speech)
+	check(err2)
+	fmt.Println(text)
 	r := mux.NewRouter()
 	r.HandleFunc("/tts", TextToSpeech).Methods("POST")
-	http.ListenAndServe(":3003", r)
+	http.ListenAndServe(":3002", r)
 }
