@@ -2,7 +2,10 @@ package main
 
 import (
 	"bytes"
+	"encoding/base64"
+	"encoding/json"
 	"errors"
+	"github.com/gorilla/mux"
 	"io/ioutil"
 	"net/http"
 )
@@ -19,7 +22,29 @@ func check(e error) {
 	}
 }
 
-func TextToSpeech(text []byte) ([]byte, error) {
+func TextToSpeech(w http.ResponseWriter, r *http.Request) {
+	t := map[string]interface{}{}
+	if err := json.NewDecoder(r.Body).Decode(&t); err == nil {
+		if text, ok := t["text"].(string); ok {
+			main_text := []byte("<speak version=\"1.0\" xml:lang=\"en-US\"><voice xml:lang=\"en-US\" " +
+				"name=\"en-US-JennyNeural\">" + text + "</voice></speak>")
+			if speech, err := TtsService(main_text); err == nil {
+				speech_encoded := base64.StdEncoding.EncodeToString([]byte(speech))
+				u := map[string]interface{}{"Speech": speech_encoded}
+				w.WriteHeader(http.StatusOK)
+				json.NewEncoder(w).Encode(u)
+			} else {
+				w.WriteHeader(http.StatusInternalServerError)
+			}
+		} else {
+			w.WriteHeader(http.StatusBadRequest)
+		}
+	} else {
+		w.WriteHeader(http.StatusBadRequest)
+	}
+}
+
+func TtsService(text []byte) ([]byte, error) {
 	client := &http.Client{}
 	req, err := http.NewRequest("POST", URI, bytes.NewBuffer(text))
 	check(err)
@@ -43,10 +68,7 @@ func TextToSpeech(text []byte) ([]byte, error) {
 }
 
 func main() {
-	text, err := ioutil.ReadFile("text.xml")
-	check(err)
-	speech, err2 := TextToSpeech(text)
-	check(err2)
-	err3 := ioutil.WriteFile("speech.wav", speech, 0644)
-	check(err3)
+	r := mux.NewRouter()
+	r.HandleFunc("/tts", TextToSpeech).Methods("POST")
+	http.ListenAndServe(":3003", r)
 }
