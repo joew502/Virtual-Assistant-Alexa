@@ -26,11 +26,11 @@ func TextToSpeech(w http.ResponseWriter, r *http.Request) {
 	t := map[string]interface{}{}
 	if err := json.NewDecoder(r.Body).Decode(&t); err == nil {
 		if text, ok := t["text"].(string); ok {
-			main_text := []byte("<speak version=\"1.0\" xml:lang=\"en-US\"><voice xml:lang=\"en-US\" " +
+			mainText := []byte("<speak version=\"1.0\" xml:lang=\"en-US\"><voice xml:lang=\"en-US\" " +
 				"name=\"en-US-JennyNeural\">" + text + "</voice></speak>")
-			if speech, err := TtsService(main_text); err == nil {
-				speech_encoded := base64.StdEncoding.EncodeToString([]byte(speech))
-				u := map[string]interface{}{"speech": speech_encoded}
+			if speech, err := TtsService(mainText); err == nil {
+				speechEncoded := base64.StdEncoding.EncodeToString([]byte(speech))
+				u := map[string]interface{}{"speech": speechEncoded}
 				w.WriteHeader(http.StatusOK)
 				json.NewEncoder(w).Encode(u)
 			} else {
