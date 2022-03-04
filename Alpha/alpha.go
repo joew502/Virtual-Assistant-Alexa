@@ -6,6 +6,7 @@ import (
 	"github.com/gorilla/mux"
 	"io/ioutil"
 	"net/http"
+	"net/url"
 )
 
 const (
@@ -23,7 +24,8 @@ func Alpha(w http.ResponseWriter, r *http.Request) {
 	t := map[string]interface{}{}
 	if err := json.NewDecoder(r.Body).Decode(&t); err == nil {
 		if textIn, ok := t["text"].(string); ok {
-			if textOut, err := AlphaService(textIn); err == nil {
+			httpTextIn := url.QueryEscape(textIn)
+			if textOut, err := AlphaService(httpTextIn); err == nil {
 				u := map[string]interface{}{"text": textOut}
 				w.WriteHeader(http.StatusOK)
 				json.NewEncoder(w).Encode(u)
@@ -40,7 +42,8 @@ func Alpha(w http.ResponseWriter, r *http.Request) {
 
 func AlphaService(text string) (string, error) {
 	client := &http.Client{}
-	req, err := http.NewRequest("GET", URI, nil)
+	sendUri := URI + "&i=" + text
+	req, err := http.NewRequest("GET", sendUri, nil)
 	check(err)
 
 	rsp, err2 := client.Do(req)
