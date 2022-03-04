@@ -19,6 +19,13 @@ const (
 	KEY = "19c1cb3c0aa848608fed5a5a8a23d640"
 )
 
+type TextJson struct {
+	RecognitionStatus string
+	DisplayText       string
+	Offset            int
+	Duration          int
+}
+
 func check(e error) {
 	if e != nil {
 		panic(e)
@@ -32,7 +39,9 @@ func SpeechToText(w http.ResponseWriter, r *http.Request) {
 			speech, err := base64.StdEncoding.DecodeString(speech_encoded)
 			check(err)
 			if text, err := SttService(speech); err == nil {
-				u := map[string]interface{}{"text": text}
+				var textJson TextJson
+				json.Unmarshal([]byte(text), &textJson)
+				u := map[string]interface{}{"text": textJson.DisplayText}
 				w.WriteHeader(http.StatusOK)
 				json.NewEncoder(w).Encode(u)
 			} else {
