@@ -15,11 +15,10 @@ const (
 	URI    = "https://" + REGION + ".stt.speech.microsoft.com/" +
 		"speech/recognition/conversation/cognitiveservices/v1?" +
 		"language=en-US"
-
 	KEY = "19c1cb3c0aa848608fed5a5a8a23d640"
 )
 
-type TextJson struct {
+type TextJSON struct {
 	RecognitionStatus string
 	DisplayText       string
 	Offset            int
@@ -35,13 +34,13 @@ func check(e error) {
 func SpeechToText(w http.ResponseWriter, r *http.Request) {
 	t := map[string]interface{}{}
 	if err := json.NewDecoder(r.Body).Decode(&t); err == nil {
-		if speech_encoded, ok := t["speech"].(string); ok {
-			speech, err := base64.StdEncoding.DecodeString(speech_encoded)
+		if speechEncoded, ok := t["speech"].(string); ok {
+			speech, err := base64.StdEncoding.DecodeString(speechEncoded)
 			check(err)
 			if text, err := SttService(speech); err == nil {
-				var textJson TextJson
-				json.Unmarshal([]byte(text), &textJson)
-				u := map[string]interface{}{"text": textJson.DisplayText}
+				var textJSON TextJSON
+				json.Unmarshal([]byte(text), &textJSON)
+				u := map[string]interface{}{"text": textJSON.DisplayText}
 				w.WriteHeader(http.StatusOK)
 				json.NewEncoder(w).Encode(u)
 			} else {
