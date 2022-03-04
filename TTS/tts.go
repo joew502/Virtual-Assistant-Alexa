@@ -30,7 +30,7 @@ func TextToSpeech(w http.ResponseWriter, r *http.Request) {
 				"name=\"en-US-JennyNeural\">" + text + "</voice></speak>")
 			if speech, err := TtsService(main_text); err == nil {
 				speech_encoded := base64.StdEncoding.EncodeToString([]byte(speech))
-				u := map[string]interface{}{"Speech": speech_encoded}
+				u := map[string]interface{}{"speech": speech_encoded}
 				w.WriteHeader(http.StatusOK)
 				json.NewEncoder(w).Encode(u)
 			} else {
