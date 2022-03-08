@@ -6,6 +6,7 @@ import (
 	"errors"
 	"fmt"
 	"github.com/gorilla/mux"
+	"io"
 	"io/ioutil"
 	"net/http"
 )
@@ -16,12 +17,6 @@ const (
 	STT   = "3002/stt"
 	TTS   = "3003/tts"
 )
-
-func check(e error) {
-	if e != nil {
-		panic(e)
-	}
-}
 
 func Alexa(w http.ResponseWriter, r *http.Request) {
 	t := map[string]interface{}{}
@@ -36,13 +31,12 @@ func Alexa(w http.ResponseWriter, r *http.Request) {
 						if err := json.Unmarshal([]byte(aSpeech), &aJSON); err == nil {
 							u := map[string]interface{}{"speech": aJSON["speech"]}
 							w.WriteHeader(http.StatusOK)
-							json.NewEncoder(w).Encode(u)
+							if err := json.NewEncoder(w).Encode(u); err != nil {
+								w.WriteHeader(http.StatusInternalServerError)
+							}
 						} else {
 							w.WriteHeader(http.StatusInternalServerError)
 						}
-						//fmt.Println(aSpeech)
-						//w.WriteHeader(http.StatusOK)
-						//json.NewEncoder(w).Encode(aSpeech)
 					} else {
 						w.WriteHeader(http.StatusInternalServerError)
 					}
@@ -63,20 +57,28 @@ func Alexa(w http.ResponseWriter, r *http.Request) {
 func Service(serviceString string, serviceUri string) (string, error) {
 	client := &http.Client{}
 	sendUri := URI + ":" + serviceUri
-	req, err := http.NewRequest("POST", sendUri, bytes.NewBuffer([]byte(serviceString)))
-	check(err)
+	if req, err := http.NewRequest("POST", sendUri, bytes.NewBuffer([]byte(serviceString))); err == nil {
+		if rsp, err := client.Do(req); err == nil {
+			defer func(Body io.ReadCloser) {
+				err := Body.Close()
+				if err != nil {
 
-	rsp, err2 := client.Do(req)
-	check(err2)
-
-	defer rsp.Body.Close()
-
-	if rsp.StatusCode == http.StatusOK {
-		body, err3 := ioutil.ReadAll(rsp.Body)
-		check(err3)
-		return string(body), nil
+				}
+			}(rsp.Body)
+			if rsp.StatusCode == http.StatusOK {
+				if body, err := ioutil.ReadAll(rsp.Body); err == nil {
+					return string(body), nil
+				} else {
+					return "", err
+				}
+			} else {
+				return "", errors.New(string(rune(rsp.StatusCode)))
+			}
+		} else {
+			return "", err
+		}
 	} else {
-		return "", errors.New("cannot convert to speech to text")
+		return "", err
 	}
 }
 

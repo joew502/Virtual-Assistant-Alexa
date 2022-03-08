@@ -5,8 +5,8 @@ import (
 	"encoding/base64"
 	"encoding/json"
 	"errors"
-	"fmt"
 	"github.com/gorilla/mux"
+	"io"
 	"io/ioutil"
 	"net/http"
 )
@@ -26,27 +26,26 @@ type TextJSON struct {
 	Duration          int
 }
 
-func check(e error) {
-	if e != nil {
-		panic(e)
-	}
-}
-
 func SpeechToText(w http.ResponseWriter, r *http.Request) {
-	fmt.Println("Got to here!!!")
 	t := map[string]interface{}{}
 	if err := json.NewDecoder(r.Body).Decode(&t); err == nil {
 		if speechEncoded, ok := t["speech"].(string); ok {
-			speech, err := base64.StdEncoding.DecodeString(speechEncoded)
-			check(err)
-			fmt.Println("Got to here2!!!")
-			if text, err := SttService(speech); err == nil {
-				var textJSON TextJSON
-				json.Unmarshal([]byte(text), &textJSON)
-				fmt.Println(textJSON.DisplayText)
-				u := map[string]interface{}{"text": textJSON.DisplayText}
-				w.WriteHeader(http.StatusOK)
-				json.NewEncoder(w).Encode(u)
+			if speech, err := base64.StdEncoding.DecodeString(speechEncoded); err == nil {
+				if text, err := SttService(speech); err == nil {
+					var textJSON TextJSON
+					if err := json.Unmarshal([]byte(text), &textJSON); err == nil {
+						u := map[string]interface{}{"text": textJSON.DisplayText}
+						w.WriteHeader(http.StatusOK)
+						err := json.NewEncoder(w).Encode(u)
+						if err != nil {
+							w.WriteHeader(http.StatusInternalServerError)
+						}
+					} else {
+						w.WriteHeader(http.StatusInternalServerError)
+					}
+				} else {
+					w.WriteHeader(http.StatusInternalServerError)
+				}
 			} else {
 				w.WriteHeader(http.StatusInternalServerError)
 			}
@@ -60,24 +59,31 @@ func SpeechToText(w http.ResponseWriter, r *http.Request) {
 
 func SttService(speech []byte) (string, error) {
 	client := &http.Client{}
-	req, err := http.NewRequest("POST", URI, bytes.NewReader(speech))
-	check(err)
+	if req, err := http.NewRequest("POST", URI, bytes.NewReader(speech)); err == nil {
+		req.Header.Set("Content-Type",
+			"audio/wav;codecs=audio/pcm;samplerate=16000")
+		req.Header.Set("Ocp-Apim-Subscription-Key", KEY)
+		if rsp, err := client.Do(req); err == nil {
+			defer func(Body io.ReadCloser) {
+				err := Body.Close()
+				if err != nil {
 
-	req.Header.Set("Content-Type",
-		"audio/wav;codecs=audio/pcm;samplerate=16000")
-	req.Header.Set("Ocp-Apim-Subscription-Key", KEY)
-
-	rsp, err2 := client.Do(req)
-	check(err2)
-
-	defer rsp.Body.Close()
-
-	if rsp.StatusCode == http.StatusOK {
-		body, err3 := ioutil.ReadAll(rsp.Body)
-		check(err3)
-		return string(body), nil
+				}
+			}(rsp.Body)
+			if rsp.StatusCode == http.StatusOK {
+				if body, err := ioutil.ReadAll(rsp.Body); err == nil {
+					return string(body), nil
+				} else {
+					return "", err
+				}
+			} else {
+				return "", errors.New(string(rune(rsp.StatusCode)))
+			}
+		} else {
+			return "", err
+		}
 	} else {
-		return "", errors.New("cannot convert to speech to text")
+		return "", err
 	}
 }
 
