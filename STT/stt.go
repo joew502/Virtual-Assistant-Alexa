@@ -5,6 +5,7 @@ import (
 	"encoding/base64"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"github.com/gorilla/mux"
 	"io/ioutil"
 	"net/http"
@@ -32,14 +33,17 @@ func check(e error) {
 }
 
 func SpeechToText(w http.ResponseWriter, r *http.Request) {
+	fmt.Println("Got to here!!!")
 	t := map[string]interface{}{}
 	if err := json.NewDecoder(r.Body).Decode(&t); err == nil {
 		if speechEncoded, ok := t["speech"].(string); ok {
 			speech, err := base64.StdEncoding.DecodeString(speechEncoded)
 			check(err)
+			fmt.Println("Got to here2!!!")
 			if text, err := SttService(speech); err == nil {
 				var textJSON TextJSON
 				json.Unmarshal([]byte(text), &textJSON)
+				fmt.Println(textJSON.DisplayText)
 				u := map[string]interface{}{"text": textJSON.DisplayText}
 				w.WriteHeader(http.StatusOK)
 				json.NewEncoder(w).Encode(u)
