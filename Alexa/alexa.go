@@ -4,7 +4,6 @@ import (
 	"bytes"
 	"encoding/json"
 	"errors"
-	"fmt"
 	"github.com/gorilla/mux"
 	"io"
 	"io/ioutil"
@@ -25,7 +24,6 @@ func Alexa(w http.ResponseWriter, r *http.Request) {
 			qSpeechJSON := "{\"speech\":\"" + qSpeech + "\"}"
 			if qText, err := Service(qSpeechJSON, STT); err == nil {
 				if aText, err := Service(qText, ALPHA); err == nil {
-					fmt.Println(aText)
 					if aSpeech, err := Service(aText, TTS); err == nil {
 						var aJSON map[string]interface{}
 						if err := json.Unmarshal([]byte(aSpeech), &aJSON); err == nil {
