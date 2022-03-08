@@ -1,4 +1,8 @@
 *.idea
 */*.idea
+*.wav
 */*.wav
 .DS_Store
+*/.DS_Store
+input
+*/input
