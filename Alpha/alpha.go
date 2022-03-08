@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"errors"
 	"github.com/gorilla/mux"
+	"io"
 	"io/ioutil"
 	"net/http"
 	"net/url"
@@ -14,12 +15,6 @@ const (
 	URI   = "http://api.wolframalpha.com/v1/result?appid=" + APPID
 )
 
-func check(e error) {
-	if e != nil {
-		panic(e)
-	}
-}
-
 func Alpha(w http.ResponseWriter, r *http.Request) {
 	t := map[string]interface{}{}
 	if err := json.NewDecoder(r.Body).Decode(&t); err == nil {
@@ -28,7 +23,9 @@ func Alpha(w http.ResponseWriter, r *http.Request) {
 			if textOut, err := AlphaService(httpTextIn); err == nil {
 				u := map[string]interface{}{"text": textOut}
 				w.WriteHeader(http.StatusOK)
-				json.NewEncoder(w).Encode(u)
+				if err := json.NewEncoder(w).Encode(u); err != nil {
+					w.WriteHeader(http.StatusInternalServerError)
+				}
 			} else {
 				w.WriteHeader(http.StatusInternalServerError)
 			}
@@ -43,20 +40,28 @@ func Alpha(w http.ResponseWriter, r *http.Request) {
 func AlphaService(text string) (string, error) {
 	client := &http.Client{}
 	sendUri := URI + "&i=" + text
-	req, err := http.NewRequest("GET", sendUri, nil)
-	check(err)
+	if req, err := http.NewRequest("GET", sendUri, nil); err == nil {
+		if rsp, err := client.Do(req); err == nil {
+			defer func(Body io.ReadCloser) {
+				err := Body.Close()
+				if err != nil {
 
-	rsp, err2 := client.Do(req)
-	check(err2)
-
-	defer rsp.Body.Close()
-
-	if rsp.StatusCode == http.StatusOK {
-		body, err3 := ioutil.ReadAll(rsp.Body)
-		check(err3)
-		return string(body), nil
+				}
+			}(rsp.Body)
+			if rsp.StatusCode == http.StatusOK {
+				if body, err := ioutil.ReadAll(rsp.Body); err == nil {
+					return string(body), nil
+				} else {
+					return "", err
+				}
+			} else {
+				return "", errors.New(string(rune(rsp.StatusCode)))
+			}
+		} else {
+			return "", err
+		}
 	} else {
-		return "", errors.New("cannot convert to speech to text")
+		return "", err
 	}
 }
 
