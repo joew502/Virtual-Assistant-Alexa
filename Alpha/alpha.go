@@ -11,19 +11,21 @@ import (
 )
 
 const (
-	APPID = "G469T3-267PUX7QWR"
-	URI   = "http://api.wolframalpha.com/v1/result?appid=" + APPID
+	APPID = "G469T3-267PUX7QWR"                                    // Key for Wolfram Alpha API
+	URI   = "http://api.wolframalpha.com/v1/result?appid=" + APPID // URI for Wolfram Alpha API
 )
 
+// Alpha - This function handles the incoming data,
+//prepares it to be sent to the Wolfram Alpha API and handles the returned data.
 func Alpha(w http.ResponseWriter, r *http.Request) {
 	t := map[string]interface{}{}
-	if err := json.NewDecoder(r.Body).Decode(&t); err == nil {
-		if textIn, ok := t["text"].(string); ok {
-			httpTextIn := url.QueryEscape(textIn)
-			if textOut, err := AlphaService(httpTextIn); err == nil {
+	if err := json.NewDecoder(r.Body).Decode(&t); err == nil { // Decodes the incoming JSON data
+		if textIn, ok := t["text"].(string); ok { // Checks the data sent in is appropriate
+			httpTextIn := url.QueryEscape(textIn)                     // Puts the question in the correct URL format
+			if textOut, err := AlphaService(httpTextIn); err == nil { // Passes the speech to the Wolfram Alpha API
 				u := map[string]interface{}{"text": textOut}
 				w.WriteHeader(http.StatusOK)
-				if err := json.NewEncoder(w).Encode(u); err != nil {
+				if err := json.NewEncoder(w).Encode(u); err != nil { // Responds to the http request with the text answer
 					w.WriteHeader(http.StatusInternalServerError)
 				}
 			} else {
@@ -39,8 +41,8 @@ func Alpha(w http.ResponseWriter, r *http.Request) {
 
 func AlphaService(text string) (string, error) {
 	client := &http.Client{}
-	sendUri := URI + "&i=" + text
-	if req, err := http.NewRequest("GET", sendUri, nil); err == nil {
+	sendUri := URI + "&i=" + text                                     // Formats the URI for the http request
+	if req, err := http.NewRequest("GET", sendUri, nil); err == nil { // Initiates the http request
 		if rsp, err := client.Do(req); err == nil {
 			defer func(Body io.ReadCloser) {
 				err := Body.Close()
@@ -48,8 +50,8 @@ func AlphaService(text string) (string, error) {
 
 				}
 			}(rsp.Body)
-			if rsp.StatusCode == http.StatusOK {
-				if body, err := ioutil.ReadAll(rsp.Body); err == nil {
+			if rsp.StatusCode == http.StatusOK { // Checks http request was handled without error
+				if body, err := ioutil.ReadAll(rsp.Body); err == nil { // Handles and returns the response from the http request
 					return string(body), nil
 				} else {
 					return "", err
@@ -65,6 +67,7 @@ func AlphaService(text string) (string, error) {
 	}
 }
 
+// main - uses mux to handle all incoming http requests and routes them accordingly
 func main() {
 	r := mux.NewRouter()
 	r.HandleFunc("/alpha", Alpha).Methods("POST")
